@@ -15,6 +15,7 @@ say() { printf '[prepare %s %s] %s\n' "$NAME" "$(date +%T)" "$*" | tee -a "$LOG"
 : > "$LOG"
 rm -f "$SUB/.built"
 chown -R challenge:challenge "$SUB"
+chmod +x "$SUB"/*.sh   # systemd execs start.sh directly; git may not carry the exec bit
 if [ -f "$SUB/install.sh" ]; then
   say "install.sh (root)"; t=$SECONDS
   (cd "$SUB" && DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a bash install.sh) >> "$LOG" 2>&1 || { tail -40 "$LOG"; say "install.sh FAILED"; exit 1; }
