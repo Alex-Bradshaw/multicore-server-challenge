@@ -1,6 +1,6 @@
 # The Multicore Server Challenge
 
-How many users can one **8-core server** handle?
+How many users can one **8-core server** handle? **[See the leaderboard](LEADERBOARD.md).**
 
 I benchmarked Go, Rust, Java and Python on 1, 2, 4 and 8 cores, running a real app (a Medium clone) on Postgres,
 with plain unoptimized code in each language's most popular framework. On 8 cores the best of them held 22,000 users.
