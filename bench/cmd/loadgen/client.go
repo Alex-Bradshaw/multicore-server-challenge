@@ -29,13 +29,14 @@ var (
 )
 
 type httpTarget struct {
-	addr string // host:port to dial
-	host string // Host header
+	addrs []string // host:port to dial; VU g dials addrs[g mod len] (several IPs of one target: >64k users per load box)
+	host  string   // Host header (the first target's)
 }
 
 type conn struct {
 	c      net.Conn
-	reused bool // has served at least one response
+	addr   string // host:port this user dials
+	reused bool   // has served at least one response
 }
 
 func (c *conn) close() {
@@ -102,7 +103,7 @@ func (c *conn) roundTrip(t *httpTarget, dials *atomic.Int64, req []byte, deadlin
 		dials.Add(1)
 		d := dialer
 		d.Deadline = deadline
-		nc, err := d.Dial("tcp", t.addr)
+		nc, err := d.Dial("tcp", c.addr)
 		if err != nil {
 			return 0, false, err
 		}

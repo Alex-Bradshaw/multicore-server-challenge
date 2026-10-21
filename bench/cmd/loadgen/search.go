@@ -79,7 +79,7 @@ func cmdSearch(args []string) int {
 	s := &searcher{}
 	fs := flag.NewFlagSet("search", flag.ExitOnError)
 	fs.StringVar(&s.targetSSH, "target-ssh", "", "ssh destination of the target, e.g. root@10.0.0.2")
-	fs.StringVar(&s.targetURL, "target-url", "", "base URL the load boxes hit, e.g. http://10.0.0.2 (default: http://<target-ssh host>)")
+	fs.StringVar(&s.targetURL, "target-url", "", "base URL the load boxes hit, e.g. http://10.0.0.2, or several comma-separated (default: http://<target-ssh host>)")
 	fs.StringVar(&s.lang, "lang", "", "language to switch the target to (go, rust, java, python)")
 	fs.StringVar(&s.label, "label", "", "run label (default <lang>-<target host>)")
 	fs.StringVar(&s.outdir, "outdir", "", "results directory (default results/<label>)")
@@ -580,7 +580,7 @@ func (s *searcher) phase(name string, users int, ramp, measure time.Duration) (*
 		s.waitIdle()
 	}
 	s.firstPhase = false
-	if out, err := s.sshOut(s.targetSSH, "curl -s -m 5 -o /dev/null -w '%{http_code}' "+shq(s.targetURL+"/api/tags")); err != nil || strings.TrimSpace(out) != "200" {
+	if out, err := s.sshOut(s.targetSSH, "curl -s -m 5 -o /dev/null -w '%{http_code}' "+shq(strings.Split(s.targetURL, ",")[0]+"/api/tags")); err != nil || strings.TrimSpace(out) != "200" {
 		s.logln("  WARNING: target health check: %q %v", out, err)
 	}
 	runID := fmt.Sprintf("%s-%s-%s", s.label, name, strconv.FormatInt(time.Now().Unix(), 36))

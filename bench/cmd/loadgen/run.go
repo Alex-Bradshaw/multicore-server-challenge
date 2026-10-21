@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
-	target := fs.String("target", "http://127.0.0.1:3000", "base URL of the server (http only)")
+	target := fs.String("target", "http://127.0.0.1:3000", "base URL of the server (http only); several comma-separated URLs (the same server on more IPs) spread the users over them")
 	users := fs.Int("users", 100, "virtual users on this box")
 	box := fs.Int("box-index", 0, "index of this load box (0-based); used for unique sign-ups and reporting")
 	idOffset := fs.Int("id-offset", 0, "global index of this box's first user (VU global index g -> seeded user id g mod 100000 + 1)")
@@ -72,13 +73,9 @@ type runConfig struct {
 
 // runBox runs this box's virtual users and returns its results.
 func runBox(c runConfig) (*BoxResult, error) {
-	u, err := url.Parse(c.target)
-	if err != nil || u.Scheme != "http" || u.Host == "" {
-		return nil, fmt.Errorf("-target must be http://host[:port]")
-	}
-	t := &httpTarget{addr: u.Host, host: u.Host}
-	if u.Port() == "" {
-		t.addr = u.Host + ":80"
+	t, err := parseTargets(c.target)
+	if err != nil {
+		return nil, err
 	}
 	if c.runID == "" {
 		c.runID = "r" + strconv.FormatInt(time.Now().Unix(), 36)
@@ -273,4 +270,25 @@ func writeJSON(path string, v any) error {
 		return err
 	}
 	return os.Rename(tmp, path)
+}
+
+// parseTargets parses -target: one http://host[:port] URL, or several comma-separated ones for the same server
+// on more IPs (each IP gives a load box another ~64k source ports).
+func parseTargets(s string) (*httpTarget, error) {
+	t := &httpTarget{}
+	for _, part := range strings.Split(s, ",") {
+		u, err := url.Parse(strings.TrimSpace(part))
+		if err != nil || u.Scheme != "http" || u.Host == "" {
+			return nil, fmt.Errorf("-target must be http://host[:port] (or several, comma-separated)")
+		}
+		addr := u.Host
+		if u.Port() == "" {
+			addr += ":80"
+		}
+		if t.host == "" {
+			t.host = u.Host
+		}
+		t.addrs = append(t.addrs, addr)
+	}
+	return t, nil
 }
