@@ -29,8 +29,22 @@ grep -v '^\s*#' "$LIST" | awk 'NF{print $1}' | while read -r name; do
   fi
   say "$name: search"
   conduit-loadgen search -target-ssh "$TARGET" -target-url "$URLS" -boxes local=1 -lang "$name" -label "$name" \
-    -start "$START" -max "$MAX" -outdir "$OUT/$name" < /dev/null > "$OUT/$name.out" 2>&1
-  rc=$?
+    -start "$START" -max "$MAX" -outdir "$OUT/$name" < /dev/null > "$OUT/$name.out" 2>&1 &
+  pid=$!
+  # Watchdog: the search doesn't notice a dead server (it keeps stepping holds down). Once the switch is done,
+  # two checks in a row with challenge.service not active = crashed: stop the search.
+  down=0; crashed=0
+  while kill -0 $pid 2>/dev/null; do
+    sleep 60
+    grep -q 'switch ok' "$OUT/$name.out" 2>/dev/null || continue
+    if ssh -n -o BatchMode=yes -o ConnectTimeout=10 "$TARGET" 'systemctl is-active -q challenge.service'; then down=0; else down=$((down + 1)); fi
+    if [ $down -ge 2 ]; then crashed=1; kill $pid; sleep 5; pkill -f '^/usr/local/bin/[c]onduit-loadgen run'; break; fi
+  done
+  wait $pid; rc=$?
+  if [ $crashed = 1 ]; then
+    say "$name: CRASHED during the search: $(ssh -n "$TARGET" 'journalctl -u challenge.service -n 3 --no-pager -o cat' | tr '\n' ' ' | cut -c1-250)"
+    continue
+  fi
   if [ -s "$OUT/$name/SUMMARY.txt" ]; then
     say "$name: done rc=$rc: $(grep -m1 '^SCORE' "$OUT/$name/SUMMARY.txt")"
   else
