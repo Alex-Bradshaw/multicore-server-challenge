@@ -25,11 +25,15 @@
 # Any libraries that use a connection pool or another resource pool should
 # be configured to provide at least as many connections as the number of
 # threads. This includes Active Record's `pool` parameter in `database.yml`.
-threads_count = ENV.fetch("RAILS_MAX_THREADS", 3)
+threads_count = ENV.fetch("RAILS_MAX_THREADS", 5)
 threads threads_count, threads_count
 
-# Specifies the `port` that Puma will listen on to receive requests; default is 3000.
-port ENV.fetch("PORT", 3000)
+# Listen on HOST:PORT from the challenge's runtime contract (127.0.0.1:3000 behind Nginx).
+bind "tcp://#{ENV.fetch("HOST", "127.0.0.1")}:#{ENV.fetch("PORT", 3000)}"
+
+# Nginx keeps upstream connections idle for up to 60 s; the spec requires us to hold them for at least 65 s
+# so Nginx never reuses a socket we've just closed.
+persistent_timeout 65
 
 # Allow puma to be restarted by `bin/rails restart` command.
 plugin :tmp_restart

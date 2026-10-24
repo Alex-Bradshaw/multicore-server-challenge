@@ -22,7 +22,7 @@ default: &default
 
 development:
   <<: *default
-  database: ruby_rails_alex_bradshaw_development
+  url: postgres://conduit:conduit@127.0.0.1:5432/conduit_local
 
   # The specified database role being used to connect to PostgreSQL.
   # To create additional roles in PostgreSQL see `$ createuser --help`.
@@ -78,8 +78,8 @@ test:
 # Read https://guides.rubyonrails.org/configuring.html#configuring-a-database
 # for a full overview on how database connection configuration can be specified.
 #
+# The challenge box provides the whole connection string in DATABASE_URL.
+# max_connections is inherited from default (RAILS_MAX_THREADS); keep it >= Puma's threads.
 production:
   <<: *default
-  database: ruby_rails_alex_bradshaw_production
-  username: ruby_rails_alex_bradshaw
-  password: <%= ENV["RUBY_RAILS_ALEX_BRADSHAW_DATABASE_PASSWORD"] %>
+  url: <%= ENV["DATABASE_URL"] %>
