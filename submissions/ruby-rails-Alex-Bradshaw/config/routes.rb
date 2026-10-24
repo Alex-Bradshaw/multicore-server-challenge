@@ -3,5 +3,9 @@ Rails.application.routes.draw do
 
   namespace :api do
     get "tags", to: "tags#index"
+
+    post "users", to: "users#create"
+    post "users/login", to: "users#login"
+    get "user", to: "users#show"
   end
 end
