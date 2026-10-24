@@ -6,9 +6,10 @@ RUBY_VERSION=4.0.0
 BUNDLER_VERSION=4.0.9
 
 apt-get update -q
-# Ruby's build dependencies, plus libpq-dev for the pg gem.
+# Ruby's build dependencies, plus libpq-dev for the pg gem, and rustc so Ruby is built with YJIT (its JIT
+# compiler, which Rails 8 turns on automatically when it's available).
 apt-get install -y -q curl ca-certificates build-essential autoconf libssl-dev libyaml-dev zlib1g-dev \
-  libffi-dev libgmp-dev libreadline-dev libpq-dev
+  libffi-dev libgmp-dev libreadline-dev libpq-dev rustc
 
 src="$(mktemp -d)"
 curl -fsSL "https://cache.ruby-lang.org/pub/ruby/${RUBY_VERSION%.*}/ruby-${RUBY_VERSION}.tar.gz" | tar xz -C "$src"
@@ -21,3 +22,5 @@ cd / && rm -rf "$src"
 /opt/ruby/bin/gem install bundler -v "$BUNDLER_VERSION" --no-document
 chmod -R a+rX /opt/ruby
 /opt/ruby/bin/ruby -v && /opt/ruby/bin/bundle -v
+# Fail the install if YJIT didn't get built in.
+/opt/ruby/bin/ruby --yjit -e 'abort "Ruby was built without YJIT" unless RubyVM::YJIT.enabled?; puts "YJIT ok"'

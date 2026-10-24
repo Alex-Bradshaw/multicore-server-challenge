@@ -32,7 +32,8 @@ Rails.application.configure do
   config.logger   = ActiveSupport::TaggedLogging.logger(STDOUT)
 
   # Change to "debug" to log everything (including potentially personally-identifiable information!).
-  config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "info")
+  # Logging every request costs real CPU at tens of thousands of requests a second, so only warnings and errors.
+  config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "warn")
 
   # Prevent health checks from clogging up the logs.
   config.silence_healthcheck_path = "/up"

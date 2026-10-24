@@ -6,7 +6,7 @@ Front: nginx
 |---|---|
 | Language | Ruby 4.0.0 (built from the official tarball by `install.sh`) |
 | Framework | Rails 8.1 in API mode |
-| Server | Puma 8 (single process, 5 threads) |
+| Server | Puma 8 (clustered: one worker per core, 5 threads each) |
 | Postgres driver | pg 1.7 (through Active Record) |
 
 A plain Rails app: controllers, models and Active Record, run behind Nginx. The point of this entry is to see how
@@ -37,4 +37,13 @@ far an ordinary Rails app gets on 8 cores, so it isn't tuned yet.
 
 ## Optimizations
 
-None yet.
+Configuration only so far; the application code is unchanged.
+
+- **One Puma worker per core.** Ruby's global VM lock lets one process run Ruby on only one core at a time, so a
+  single Puma process would use about one of the 8 cores. `start.sh` sets `WEB_CONCURRENCY` to the core count.
+- **5 threads per worker.** Most of a request is spent waiting on Postgres, which releases the lock, so a few
+  threads per worker keep each core busy. 8 workers x 5 threads = 40 Postgres connections, under the 95 limit;
+  `config/puma.rb` refuses to start if a setting would go over it.
+- **`preload_app!`.** Rails boots once and the workers are forked from it, so they share memory.
+- **YJIT.** `install.sh` installs `rustc` so Ruby is built with YJIT, which Rails 8 enables automatically.
+- **Log level `warn`.** Request logging at this request rate costs measurable CPU.

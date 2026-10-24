@@ -6,6 +6,17 @@ cd "$(dirname "$0")"
 if [ -x /opt/ruby/bin/ruby ]; then export PATH="/opt/ruby/bin:$PATH"; fi
 export BUNDLE_PATH=vendor/bundle BUNDLE_WITHOUT=development:test
 export RAILS_ENV=production
+# One Puma worker per core (8 on the box) with 5 threads each: 40 Postgres connections, under the 95 limit.
+# Postgres and Nginx share these cores too, so fewer workers may do better: override WEB_CONCURRENCY to try it.
+export WEB_CONCURRENCY="${WEB_CONCURRENCY:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}"
+export RAILS_MAX_THREADS="${RAILS_MAX_THREADS:-5}"
+
+# macOS only (local development): Puma forks its workers from a preloaded Rails app, and on macOS a forked
+# process crashes the first time libpq touches the system's Kerberos/GSS or Objective-C libraries. Neither is
+# needed for a plain password connection, so turn them off. Linux (the benchmark box and CI) doesn't have this.
+if [ "$(uname)" = Darwin ]; then
+  export PGGSSENCMODE=disable OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+fi
 # Production Rails refuses to boot without a secret_key_base. The API has no sessions or cookies,
 # so nothing is signed with it and a fixed value is fine.
 export SECRET_KEY_BASE=not-used-this-api-has-no-sessions
