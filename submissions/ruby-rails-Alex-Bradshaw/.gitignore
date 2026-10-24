@@ -13,3 +13,6 @@
 !/storage/.keep
 
 .DS_Store
+
+# Rails secret key: never commit it (the app runs from SECRET_KEY_BASE in start.sh instead)
+/config/master.key

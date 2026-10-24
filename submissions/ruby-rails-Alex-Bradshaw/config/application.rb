@@ -40,5 +40,9 @@ module RubyRailsAlexBradshaw
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # Rails "deep munges" JSON params by default, turning [null] into []. The spec needs to see the null
+    # (a tagList of [null] must be a 422), and this app never passes params straight into SQL conditions.
+    config.action_dispatch.perform_deep_munge = false
   end
 end

@@ -8,6 +8,11 @@ class ApplicationController < ActionController::API
     render_error(:unprocessable_content, "request body is not valid JSON")
   end
 
+  # The catch-all route at the bottom of config/routes.rb.
+  def route_not_found
+    render_error(:not_found, "not found")
+  end
+
   private
 
   # Authentication (SPEC.md): the header is `Authorization: Token <jwt>`, verified on every request.
@@ -41,6 +46,31 @@ class ApplicationController < ActionController::API
   def token_from_header
     scheme, token = request.authorization.to_s.split(" ", 2)
     token if scheme == "Token" && token.present?
+  end
+
+  MAX_LIMIT = 100
+  # The feed's reference SQL adds limit + offset as 32-bit ints, so offsets are capped below that to avoid an
+  # overflow error. (No real client pages 2 billion articles deep.)
+  MAX_OFFSET = 2_147_483_647 - MAX_LIMIT
+
+  # Reads ?limit= (default 20, 1..100) and ?offset= (default 0). Both must be plain digit strings ("05" is fine,
+  # "+5", " 5", "1.5" and "" are not). Returns [limit, offset], or renders a 422 and returns nil.
+  def pagination
+    limit = page_param(:limit, 20, 1..MAX_LIMIT)
+    offset = page_param(:offset, 0, 0..MAX_OFFSET)
+    return [limit, offset] if limit && offset
+
+    render_error(:unprocessable_content, "limit must be an integer 1-100 and offset an integer >= 0")
+    nil
+  end
+
+  def page_param(name, default, range)
+    raw = params[name]
+    return default if raw.nil?
+    return unless raw.is_a?(String) && raw.match?(/\A\d+\z/)
+
+    value = raw.to_i # to_i, not Integer(): Integer("05") would read it as octal
+    value if range.cover?(value)
   end
 
   # Every error in the spec has the shape {"errors": {"body": ["<message>"]}}.
