@@ -1,5 +1,5 @@
 class Api::UsersController < ApplicationController
-  before_action :require_auth!, only: :show
+  before_action :require_auth!, only: %i[show update]
 
   # GET /api/user: the current user
   def show
@@ -9,6 +9,40 @@ class Api::UsersController < ApplicationController
 
     # The token in the response is the one the request presented, not a new one.
     render json: { user: user.as_auth_json(current_token) }
+  end
+
+  # PUT /api/user: update any of email, username, password, bio, image
+  def update
+    attrs = params[:user]
+    return render_error(:unprocessable_content, "user must be an object") unless attrs.is_a?(ActionController::Parameters)
+
+    changes = {}
+    UPDATABLE_FIELDS.each do |field|
+      value = attrs[field]
+      next if value.nil? # absent or null: leave unchanged
+
+      return render_error(:unprocessable_content, "#{field} must be a string") unless value.is_a?(String)
+      if value.empty? && NON_EMPTY_FIELDS.include?(field)
+        return render_error(:unprocessable_content, "#{field} can't be empty")
+      end
+
+      changes[field] = value
+    end
+
+    if (password = changes.delete(:password))
+      if password.bytesize > User::MAX_PASSWORD_BYTES
+        return render_error(:unprocessable_content, "password is longer than 72 bytes")
+      end
+      changes[:password_hash] = User.hash_password(password)
+    end
+
+    user = User.find_by(id: viewer_id)
+    return render_error(:unauthorized, "user not found") unless user
+
+    user.update!(changes) # an empty hash is a no-op, so {"user": {}} just returns the user unchanged
+    render json: { user: user.as_auth_json(current_token) }
+  rescue ActiveRecord::RecordNotUnique
+    render_error(:unprocessable_content, "username or email is already taken")
   end
 
   # POST /api/users: register
@@ -45,6 +79,9 @@ class Api::UsersController < ApplicationController
   end
 
   private
+
+  UPDATABLE_FIELDS = %i[email username password bio image].freeze
+  NON_EMPTY_FIELDS = %i[email username password].freeze # bio and image may be set to ""
 
   # Reads the given keys from the {"user": {...}} wrapper. Returns their values in order if the wrapper is an
   # object and every one is a non-empty string; otherwise nil (which destructures to all-nil in the caller).
