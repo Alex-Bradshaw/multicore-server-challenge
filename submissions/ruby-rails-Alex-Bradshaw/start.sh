@@ -20,4 +20,10 @@ fi
 # Production Rails refuses to boot without a secret_key_base. The API has no sessions or cookies,
 # so nothing is signed with it and a fixed value is fine.
 export SECRET_KEY_BASE=not-used-this-api-has-no-sessions
+# jemalloc (installed by install.sh) instead of glibc's malloc: Ruby allocates constantly, and jemalloc is
+# faster for that pattern and fragments memory far less across many threads. Linux only; skipped if absent.
+for lib in /usr/lib/x86_64-linux-gnu/libjemalloc.so.2 /usr/lib/aarch64-linux-gnu/libjemalloc.so.2; do
+  if [ -f "$lib" ]; then export LD_PRELOAD="$lib"; break; fi
+done
+
 exec bundle exec puma -C config/puma.rb

@@ -42,6 +42,31 @@ end
 # (Rails 7.1+ reconnects Active Record in each forked worker by itself.)
 preload_app! if worker_count > 1
 
+# Rule 9: "If your server crashes, it isn't restarted." Puma's cluster master normally replaces any worker that
+# dies (its check_workers loop reaps the dead worker, then spawn_workers tops the count back up), and there's no
+# setting to turn that off. So spawn_workers is allowed to run once, at boot, and never again: a worker that
+# dies stays dead and the remaining workers carry on.
+require "puma/cluster"
+unless Puma::Cluster.method_defined?(:spawn_workers) || Puma::Cluster.private_method_defined?(:spawn_workers)
+  raise "Puma::Cluster#spawn_workers is gone (Puma upgraded?): re-check the no-respawn patch in config/puma.rb"
+end
+module SpawnWorkersOnlyAtBoot
+  def spawn_workers
+    return if @initial_workers_spawned
+
+    super
+    @initial_workers_spawned = true
+  end
+end
+Puma::Cluster.prepend(SpawnWorkersOnlyAtBoot)
+
+# Say so in the log when it happens, so a crash during a run is visible.
+after_worker_shutdown do |worker|
+  next if worker.process_status&.success?
+
+  warn "[rule 9] worker #{worker.index} (pid #{worker.pid}) died (#{worker.process_status.inspect}); not replacing it"
+end
+
 # Listen on HOST:PORT from the challenge's runtime contract (127.0.0.1:3000 behind Nginx).
 bind "tcp://#{ENV.fetch("HOST", "127.0.0.1")}:#{ENV.fetch("PORT", 3000)}"
 

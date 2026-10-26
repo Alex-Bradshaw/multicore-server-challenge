@@ -6,10 +6,11 @@ RUBY_VERSION=4.0.0
 BUNDLER_VERSION=4.0.9
 
 apt-get update -q
+# libjemalloc2 is a faster memory allocator that start.sh loads into Ruby (see there).
 # Ruby's build dependencies, plus libpq-dev for the pg gem, and rustc so Ruby is built with YJIT (its JIT
 # compiler, which Rails 8 turns on automatically when it's available).
 apt-get install -y -q curl ca-certificates build-essential autoconf libssl-dev libyaml-dev zlib1g-dev \
-  libffi-dev libgmp-dev libreadline-dev libpq-dev rustc
+  libffi-dev libgmp-dev libreadline-dev libpq-dev rustc libjemalloc2
 
 src="$(mktemp -d)"
 curl -fsSL "https://cache.ruby-lang.org/pub/ruby/${RUBY_VERSION%.*}/ruby-${RUBY_VERSION}.tar.gz" | tar xz -C "$src"

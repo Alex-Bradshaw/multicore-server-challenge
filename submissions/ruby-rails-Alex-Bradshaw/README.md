@@ -45,5 +45,13 @@ Configuration only so far; the application code is unchanged.
   threads per worker keep each core busy. 8 workers x 5 threads = 40 Postgres connections, under the 95 limit;
   `config/puma.rb` refuses to start if a setting would go over it.
 - **`preload_app!`.** Rails boots once and the workers are forked from it, so they share memory.
+- **No worker respawn (rule 9).** Puma's cluster master normally replaces a worker that dies. `config/puma.rb`
+  patches `Puma::Cluster#spawn_workers` to run only once, at boot, so a crashed worker stays dead (and is logged
+  with a `[rule 9]` line) while the other workers keep serving.
 - **YJIT.** `install.sh` installs `rustc` so Ruby is built with YJIT, which Rails 8 enables automatically.
+- **jemalloc.** `install.sh` installs `libjemalloc2` and `start.sh` preloads it into Ruby: it's faster than
+  glibc's malloc for Ruby's allocation pattern and fragments less across threads.
+- **No ETag middleware.** The API doesn't support conditional requests (the spec defines no ETags or 304s), so
+  `Rack::ETag` and `Rack::ConditionalGet` are removed rather than hashing every response body. Every client
+  still gets a normal 200 with the full body.
 - **Log level `warn`.** Request logging at this request rate costs measurable CPU.

@@ -44,5 +44,11 @@ module RubyRailsAlexBradshaw
     # Rails "deep munges" JSON params by default, turning [null] into []. The spec needs to see the null
     # (a tagList of [null] must be a 422), and this app never passes params straight into SQL conditions.
     config.action_dispatch.perform_deep_munge = false
+
+    # This API doesn't do HTTP conditional requests: Rack::ETag would hash every response body to make an ETag
+    # header, and Rack::ConditionalGet would compare it with If-None-Match. Every response is a plain 200 with its
+    # full body instead (the spec defines no ETags or 304s), which saves hashing each body.
+    config.middleware.delete Rack::ETag
+    config.middleware.delete Rack::ConditionalGet
   end
 end
